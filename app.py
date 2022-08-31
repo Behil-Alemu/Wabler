@@ -2,7 +2,7 @@ import os
 
 from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError,InvalidRequestError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
 from models import db, connect_db, User, Message
@@ -209,33 +209,36 @@ def stop_following(follow_id):
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
     """Update profile for current user."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect(f"/users/{g.user.id}")
+
+    user=g.user
     form = UserEditForm()
 
     if form.validate_on_submit():
         try:
-            user = User.authenticate(
-                username=form.username.data,
-                password=form.password.data)
-            user.email=form.email.data
-            user.image_url=form.image_url.data or User.image_url.default.arg
-            user.bio=form.bio.data
-            user.location=form.location.data
-            user.header_image_url=form.header_image_url.data
+            if User.authenticate(user.username,form.password.data):
+                user.email=form.email.data
+                user.image_url=form.image_url.data or User.image_url.default.arg
+                user.bio=form.bio.data
+                user.location=form.location.data
+                user.header_image_url=form.header_image_url.data
 
-            db.session.commit()
+                db.session.commit()
         except IntegrityError:
             flash("Wrong password", 'danger')
             return render_template('users/edit.html', form=form)
-        # except PendingRollbackError:
-        #     flash("Email taken", 'danger')
-        #     return render_template('users/edit.html', form=form)
+        except InvalidRequestError:
+            flash("Email taken", 'danger')
+            return render_template('users/edit.html', form=form)
+        #  why does this not work?
 
-        do_login(user)
-
-        return redirect("/")
+        return redirect(f"/users/{user.id}")
 
     else:
-        return render_template('users/edit.html', form=form)
+        return render_template('users/edit.html', form=form, user=user)
     
 
 
