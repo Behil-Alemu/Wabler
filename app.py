@@ -295,6 +295,26 @@ def messages_show(message_id):
     return render_template('messages/show.html', message=msg)
 
 
+
+@app.route('/users/add_like/<int:message_id>', methods=["GET"])
+def add_liked_msg(message_id):
+    """Like others msg but not your own"""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_msg = Message.query.get(message_id)
+    user_likes= g.user.likes
+
+    if liked_msg in user_likes:
+        g.user.likes =[]
+    else:
+        g.user.likes.append(liked_msg)
+    db.session.commit()
+    return redirect("/")
+
+
+
 @app.route('/messages/<int:message_id>/delete', methods=["POST"])
 def messages_destroy(message_id):
     """Delete a message."""
@@ -308,6 +328,7 @@ def messages_destroy(message_id):
     db.session.commit()
 
     return redirect(f"/users/{g.user.id}")
+
 
 
 ##############################################################################
