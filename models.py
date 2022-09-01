@@ -109,6 +109,7 @@ class User(db.Model):
         primaryjoin=(Follows.user_following_id == id),
         secondaryjoin=(Follows.user_being_followed_id == id)
     )
+    # I do not understand the above 2 
 
     likes = db.relationship(
         'Message',

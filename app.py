@@ -1,3 +1,4 @@
+from bdb import set_trace
 import os
 
 from flask import Flask, render_template, request, flash, redirect, session, g
@@ -38,7 +39,7 @@ def add_user_to_g():
 
     else:
         g.user = None
-
+# I do not understand flask global all to well
 
 def do_login(user):
     """Log in user."""
@@ -112,6 +113,7 @@ def logout():
     """Handle logout of user."""
 
     session.pop(CURR_USER_KEY)
+    # or do_logout()
     flash("Goodbye!", "info")
     return redirect('/login')
 
@@ -321,18 +323,20 @@ def homepage():
     """
 
     if g.user:
+        following_ids= [f.id for f in g.user.following]+[g.user.id]
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_ids))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-
+        
+        # import pdb; pdb.set_trace()
         return render_template('home.html', messages=messages)
-
     else:
         return render_template('home-anon.html')
 
-
+# why add f.id and user.id? so we can see the messages from the people we follow and ours
 ##############################################################################
 # Turn off all caching in Flask
 #   (useful for dev; in production, this kind of stuff is typically
