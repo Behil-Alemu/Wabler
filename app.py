@@ -1,12 +1,12 @@
 from bdb import set_trace
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
+from flask import Flask, render_template, request, flash, redirect, session, g,abort
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError,InvalidRequestError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
-from models import db, connect_db, User, Message
+from models import Likes, db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
 
@@ -142,7 +142,6 @@ def users_show(user_id):
     """Show user profile."""
 
     user = User.query.get_or_404(user_id)
-
     # snagging messages in order from the database;
     # user.messages won't be in order by default
     messages = (Message
@@ -151,7 +150,8 @@ def users_show(user_id):
                 .order_by(Message.timestamp.desc())
                 .limit(100)
                 .all())
-    return render_template('users/show.html', user=user, messages=messages)
+    likes= [msg.id for msg in user.likes]
+    return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
 
 @app.route('/users/<int:user_id>/following')
@@ -206,6 +206,9 @@ def stop_following(follow_id):
     db.session.commit()
 
     return redirect(f"/users/{g.user.id}/following")
+
+
+
 
 
 @app.route('/users/profile', methods=["GET", "POST"])
@@ -295,24 +298,39 @@ def messages_show(message_id):
     return render_template('messages/show.html', message=msg)
 
 
+@app.route('/users/<int:user_id>/likes', methods=["GET"])
+def user_likes(user_id):
+    """Show list of likes of the user"""
 
-@app.route('/users/add_like/<int:message_id>', methods=["GET"])
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template("users/likes.html", likes=user.likes, user=user)
+
+
+@app.route('/messages/<int:message_id>/like', methods=[ "POST"])
 def add_liked_msg(message_id):
     """Like others msg but not your own"""
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    liked_msg = Message.query.get(message_id)
+    clicked_msg = Message.query.get(message_id)
+    if clicked_msg.user_id==g.user.id:
+        return abort(403)
     user_likes= g.user.likes
 
-    if liked_msg in user_likes:
-        g.user.likes =[]
+    if clicked_msg in user_likes:
+        g.user.likes= [ like for like in user_likes if like!=clicked_msg]
     else:
-        g.user.likes.append(liked_msg)
+        g.user.likes.append(clicked_msg)
     db.session.commit()
+    # import pdb; pdb.set_trace()
     return redirect("/")
 
+# now sure what like 326 does
 
 
 @app.route('/messages/<int:message_id>/delete', methods=["POST"])
