@@ -151,6 +151,7 @@ def users_show(user_id):
                 .limit(100)
                 .all())
     likes= [msg.id for msg in user.likes]
+
     return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
 
@@ -371,7 +372,9 @@ def homepage():
                     .all())
         
         # import pdb; pdb.set_trace()
-        return render_template('home.html', messages=messages)
+        likes= [msg.id for msg in g.user.likes]
+
+        return render_template('home.html', messages=messages, likes=likes)
     else:
         return render_template('home-anon.html')
 
