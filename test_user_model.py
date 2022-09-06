@@ -54,7 +54,7 @@ class UserModelTestCase(TestCase):
 
         u2=User.signup(username="user2",
             email="email2@gmail.com",
-            password="hashed_pwd",
+            password="hashed_pwd2",
             image_url=None
         )
         u2_id=986794
@@ -171,6 +171,16 @@ class UserModelTestCase(TestCase):
             db.session.commit()
 
     def test_login(self):
+        """Test authenticate"""
+        user = User.authenticate(self.u1.username,'hashed_pwd')
+        self.assertEqual(user.username, "user1")
+        self.assertEqual(user.id, self.u1_id)
+        self.assertEqual(user.password, self.u1.password)
+        self.assertFalse(User.authenticate('NotUser', self.u1.password))
+        self.assertTrue(User.authenticate(self.u1.username, "hashed_pwd"))
+
+
+
 
 
 
