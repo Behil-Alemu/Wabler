@@ -9,6 +9,7 @@ import os
 from unittest import TestCase
 
 from models import db, connect_db, Message, User
+from flask import session
 
 # BEFORE we import our app, let's set an environmental variable
 # to use a different database for tests (we need to do this
@@ -41,6 +42,8 @@ class MessageViewTestCase(TestCase):
 
         User.query.delete()
         Message.query.delete()
+        db.session.commit()
+        db.create_all()
 
         self.client = app.test_client()
 
@@ -48,6 +51,7 @@ class MessageViewTestCase(TestCase):
                                     email="test@test.com",
                                     password="testuser",
                                     image_url=None)
+        self.testuser.id = 9898              
 
         db.session.commit()
 
@@ -71,3 +75,98 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+
+    def test_add_no_session(self):
+        """adding message without session will not be authorized"""
+        with self.client as c:
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True )
+            # follow_redirect=True means non-redirect response is returned.
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertNotIn(CURR_USER_KEY, session)
+            self.assertIn(b'Access unauthorized.', resp.data)
+
+    def test_add_invalid_user(self):
+        """no access for invalid users"""
+
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = 878876
+
+
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(CURR_USER_KEY, session)
+            self.assertIn(b'Access unauthorized.', resp.data)
+    
+    def test_message_show(self):
+        """show  list of message /message/<int:message_id>"""
+        
+        m = Message(
+            id= 939,
+            text="TOO cool for school",
+            user_id= self.testuser.id)
+
+        db.session.add(m)
+        db.session.commit()
+
+       
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            m= Message.query.get(939)
+
+            resp= c.get(f"/messages/{m.id}")
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(m.text, str(resp.data))
+
+    def test_add_invalid_user(self):
+        """no access for invalid message id"""
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp= c.post('/messages/986297')
+            self.assertNotEqual(resp.status_code, 200)
+
+    def test_message_delete(self):
+        """DElect message working properly"""
+        m = Message(
+            id= 939,
+            text="TOO cool for school",
+            user_id= self.testuser.id)
+
+        db.session.add(m)
+        db.session.commit()
+
+       
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            m= Message.query.get(939)
+            resp= c.post(f"/messages/{m.id}/delete")
+            self.assertEqual(resp.status_code, 302)
+            self.assertNotIn(m.text, str(resp.data))
+
+    def test_add_invalid_message(self):
+        """no delete access for invalid message id"""
+        m = Message(
+            id= 939,
+            text="TOO cool for school",
+            user_id= self.testuser.id)
+
+        db.session.add(m)
+        db.session.commit()
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] =self.testuser.id
+
+            resp= c.get('/messages/7858/delete')
+            self.assertNotEqual(resp.status_code, 200)
+            
+
+
+
